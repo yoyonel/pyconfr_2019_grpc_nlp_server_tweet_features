@@ -12,7 +12,7 @@ jobs:
             python3 -m venv venv
             . venv/bin/activate
             pip install -e ".[develop]"
-            python -m spacy download en_core_web_sm
+            python setup.py download_spacy_matching_model
       - save_cache:
           key: deps1-{{ .Branch }}-{{ checksum "requirements.txt" }}
           paths:

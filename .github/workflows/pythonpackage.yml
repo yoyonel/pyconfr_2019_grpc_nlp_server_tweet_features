@@ -23,6 +23,7 @@ jobs:
         . venv/bin/activate
         python -m pip install --upgrade pip
         pip install --extra-index-url https://test.pypi.org/simple/ -e ".[develop]"
+        python setup.py download_spacy_matching_model
     - name: Test with pytest
       run: |
         . venv/bin/activate
