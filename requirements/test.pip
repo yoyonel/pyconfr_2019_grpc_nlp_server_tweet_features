@@ -1,0 +1,9 @@
+dictdiffer
+mock
+mongomock
+pytest
+pytest-cov
+pytest-html
+pytest-mock
+pytest-mongodb
+tox

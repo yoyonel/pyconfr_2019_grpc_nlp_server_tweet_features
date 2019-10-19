@@ -1,0 +1,20 @@
+# GRPC
+grpcio
+grpcio-tools
+mypy-protobuf
+
+# LANG
+langdetect
+pycountry
+spacy
+spacy-langdetect
+textblob
+textblob-fr
+
+# PROCESSING
+pandas
+pydantic
+
+#
+pyconfr-2019-grpc-nlp-tools==0.1.1
+pyconfr-2019-grpc-nlp-protos==0.1.2
