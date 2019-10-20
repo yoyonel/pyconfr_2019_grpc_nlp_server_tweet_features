@@ -9,7 +9,9 @@ PACKAGE_FULLNAME=$(shell python setup.py --fullname)
 PACKAGE_VERSION:=$(shell python setup.py --version | tr + _)
 #
 PROJECT_NAME?=$(PACKAGE_NAME)
+#
 APP_ENTRY_POINT?=$(PACKAGE_NAME)
+APP_EXPOSE_PORT?=50051
 #
 DOCKER_USER?=yoyonel
 DOCKER_TAG?=$(DOCKER_USER)/$(PROJECT_NAME):${PACKAGE_VERSION}
@@ -49,6 +51,7 @@ docker: ${SDIST_PACKAGE} docker/Dockerfile	## Building docker image for storage 
 	@docker build \
 		--build-arg PYPI_SERVER=$(PYPI_SERVER) \
 		--build-arg APP_ENTRY_POINT=$(APP_ENTRY_POINT) \
+		--build-arg APP_EXPOSE_PORT=$(APP_EXPOSE_PORT) \
 		-t $(DOCKER_TAG) \
 		-f docker/Dockerfile \
 		.
