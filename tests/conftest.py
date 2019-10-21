@@ -2,11 +2,11 @@ import codecs
 import functools
 import json
 import os
-import socket
-from contextlib import closing
 from dataclasses import dataclass
+from typing import Optional, Dict, Any
 
 from pyconfr_2019.grpc_nlp.protos import TweetFeaturesService_pb2_grpc
+from pyconfr_2019.grpc_nlp.tools.find_free_port import find_free_port
 
 from tweet_features.tweet_features_server import serve
 
@@ -22,10 +22,13 @@ from bson import json_util
 # Code highly inspired from pytest-mongodb
 # https://github.com/mdomke/pytest-mongodb/blob/develop/pytest_mongodb/plugin.py
 _cache = {}
-_server_instance = None
+_cache_grpc = {
+    "server_instance": None,  # type: Optional[grpc.Server]
+    "grpc_host_and_port": None,  # type: str
+}  # type: Dict[str, Any]
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope="function")
 def mongodb(pytestconfig):
     def make_mongo_client():
         return mongomock.MongoClient()
@@ -47,9 +50,8 @@ def mongodb(pytestconfig):
 
         @staticmethod
         def load_fixtures(db: mongomock.Database, fixture_name: str):
-            basedir = pytestconfig.getoption(
-                'mongodb_fixture_dir') or pytestconfig.getini(
-                'mongodb_fixture_dir')
+            basedir = (pytestconfig.getoption('mongodb_fixture_dir') or
+                       pytestconfig.getini('mongodb_fixture_dir'))
             fixture_path = os.path.join(pytestconfig.rootdir, basedir,
                                         '{}.json'.format(fixture_name))
 
@@ -76,27 +78,14 @@ def mongodb(pytestconfig):
     return MongoWrapper()
 
 
-@pytest.fixture(scope='session', autouse=True)
+@pytest.fixture(scope="session", autouse=True)
 def close_tweet_features_server(request):
     def stop_server():
-        global _server_instance
-        if _server_instance:
-            _server_instance.stop(0)
-            _server_instance = None
+        if _cache_grpc["server_instance"]:
+            _cache_grpc["server_instance"].stop(0)
+            _cache_grpc["server_instance"] = None
 
     request.addfinalizer(stop_server)
-
-
-def find_free_port():
-    # TODO: Move to tools package !
-    # https://stackoverflow.com/questions/1365265/on-localhost-how-do-i-pick-a-free-port-number
-    def _find_free_port():
-        with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
-            s.bind(('localhost', 0))
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            return s.getsockname()[1]
-
-    return _find_free_port()
 
 
 @pytest.fixture(scope='module')
@@ -118,8 +107,6 @@ def mocked_tweet_features_rpc_server(mocker, free_port_for_grpc_server):
     class Wrapper(object):
         @staticmethod
         def start(database=None):
-            global _server_instance
-
             # Mock the database first
             mock_tweet_features = mocker.patch('tweet_features.tweet_features_service.StorageDatabase')
 
@@ -127,24 +114,23 @@ def mocked_tweet_features_rpc_server(mocker, free_port_for_grpc_server):
                 # Mock methods
                 mock_tweet_features.return_value.__enter__.return_value = database
 
-            if _server_instance is None:
-                _server_instance = serve(block=False,
-                                         grpc_host_and_port='[::]:{}'.format(free_port_for_grpc_server))
-
-            assert _server_instance is not None
+            if _cache_grpc["server_instance"] is None:
+                _cache_grpc["grpc_host_and_port"] = "[::]:{}".format(free_port_for_grpc_server)
+                _cache_grpc["server_instance"] = serve(block=False,
+                                                       grpc_host_and_port=_cache_grpc["grpc_host_and_port"])
+                assert _cache_grpc["server_instance"] is not None
 
     return Wrapper()
 
 
-@pytest.fixture
-def tweet_features_rpc_stub(mongodb, mocked_tweet_features_rpc_server, free_port_for_grpc_server):
+@pytest.fixture(scope="function")
+def tweet_features_rpc_stub(mongodb, mocked_tweet_features_rpc_server):
     """
     Create a new tweet features rpc stub and connect to the server
 
     Args:
         mongodb:
         mocked_tweet_features_rpc_server:
-        free_port_for_grpc_server:
 
     Returns:
 
@@ -154,7 +140,7 @@ def tweet_features_rpc_stub(mongodb, mocked_tweet_features_rpc_server, free_port
     # Start storage server
     mocked_tweet_features_rpc_server.start(db)
 
-    channel = grpc.insecure_channel('localhost:{}'.format(free_port_for_grpc_server))
+    channel = grpc.insecure_channel(_cache_grpc["grpc_host_and_port"])
     stub = TweetFeaturesService_pb2_grpc.TweetFeaturesServiceStub(channel)
 
     return stub
