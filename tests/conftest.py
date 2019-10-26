@@ -115,7 +115,7 @@ def mocked_tweet_features_rpc_server(mocker, free_port_for_grpc_server):
                 mock_tweet_features.return_value.__enter__.return_value = database
 
             if _cache_grpc["server_instance"] is None:
-                _cache_grpc["grpc_host_and_port"] = "[::]:{}".format(free_port_for_grpc_server)
+                _cache_grpc["grpc_host_and_port"] = "localhost:{}".format(free_port_for_grpc_server)
                 _cache_grpc["server_instance"] = serve(block=False,
                                                        grpc_host_and_port=_cache_grpc["grpc_host_and_port"])
                 assert _cache_grpc["server_instance"] is not None
